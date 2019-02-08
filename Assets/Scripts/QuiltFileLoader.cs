@@ -160,7 +160,8 @@ public class QuiltFileLoader : MonoBehaviour
     /// 画像を読み込み
     /// </summary>
     /// <param name="uri">Path.</param>
-    private void LoadFile(string path) {
+    private void LoadFile(string path)
+    {
         if (string.IsNullOrEmpty(path)) return;
 
         isLoading = true;
@@ -178,16 +179,22 @@ public class QuiltFileLoader : MonoBehaviour
     /// <returns></returns>
     IEnumerator LoadFileCoroutine(string file)
     {
-        WWW www = new WWW(file);
-        yield return www;
+        //WWW www = new WWW(file);
+        //yield return www;
 
         // 前のtextureを破棄
         Destroy(texture);
 
         // Quiltを読み込み
-        texture = www.texture;
-        quilt.tiling = GetTilingType(texture);
-        quilt.overrideQuilt = texture;
+        //texture = www.texture;
+        //quilt.tiling = GetTilingType(texture);
+        quilt.tiling = new Quilt.Tiling(
+               "Custom " + 2 + "x" + 1,
+               2, 1,
+               2560, 1440
+               );
+        //quilt.overrideQuilt = texture;
+        quilt.overrideQuilt = renderTexture;
         quilt.SetupQuilt();
 
         // 念のため毎回GCをしてみる…
@@ -197,22 +204,31 @@ public class QuiltFileLoader : MonoBehaviour
 
         // 読み込み完了
         isLoading = false;
+
+        yield return null;
     }
+
+    [SerializeField]
+    RenderTexture renderTexture;
 
     /// <summary>
     /// スライドショーでの次のファイルパスを返す
     /// </summary>
     /// <returns>path</returns>
     /// <param name="step">1なら１つ次、-1なら１つ前</param>
-    private string GetNextFile(int step) {
+    private string GetNextFile(int step)
+    {
         List<string> files;
         int currentIndex = 0;
 
-        if (targetFiles.Count > 0) {
+        if (targetFiles.Count > 0)
+        {
             // 対象ファイルが指定されている場合はそのリストをたどる
             currentIndex = targetFiles.IndexOf(currentFile);
             files = targetFiles;
-        } else {
+        }
+        else
+        {
             // 対象ファイル指定なしならば、現在のファイルと同じディレクトリから一覧を取得
             //   利便性のため、毎回一覧を取得
             string directory = Path.GetDirectoryName(currentFile);
@@ -220,11 +236,14 @@ public class QuiltFileLoader : MonoBehaviour
             files = new List<string>();
 
             string[] allFiles = Directory.GetFiles(directory);
-            foreach (string path in allFiles) {
+            foreach (string path in allFiles)
+            {
                 string ext = Path.GetExtension(path).ToLower();
-                if (ext == ".png" || ext == ".jpg" || ext == ".jpeg") {
+                if (ext == ".png" || ext == ".jpg" || ext == ".jpeg")
+                {
                     files.Add(path);
-                    if (Path.GetFileName(path) == filename) {
+                    if (Path.GetFileName(path) == filename)
+                    {
                         currentFile = path;
                     }
                     Debug.Log(path);
@@ -254,10 +273,11 @@ public class QuiltFileLoader : MonoBehaviour
             // インデックスが0より小さくなったら、先頭とする
             index = 0;
         }
-        else if (index >= files.Count) {
+        else if (index >= files.Count)
+        {
             // インデックスがリストを超えたら、最後に送る
             index = files.Count - 1;
-        } 
+        }
         return files[index];
     }
 
@@ -290,7 +310,8 @@ public class QuiltFileLoader : MonoBehaviour
         // 自分のウィンドウにフォーカスを与える
         window.Focus();
 
-        if (files.Length == 1) {
+        if (files.Length == 1)
+        {
             // 一つだけドロップの場合はスライドショーリストを消去
             targetFiles.Clear();
 
