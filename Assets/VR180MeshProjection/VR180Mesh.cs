@@ -11,11 +11,9 @@ public class VR180Mesh : MonoBehaviour
 {
     [SerializeField]
     MeshFilter[] meshFilters;
-    private void Awake()
+    public void GenerateMesh(string url)
     {
-        var vp = GetComponent<VideoPlayer>();
-
-        var bytes = GetMshpBin(vp.url);
+        var bytes = GetMshpBin(url);
         var meshes = MeshProjectionBoxParser.MeshProjectionBox.Parse(bytes);
 
         if (meshes != null && meshes.Length > 0)
@@ -84,10 +82,10 @@ public class VR180Mesh : MonoBehaviour
         }
     }
 
-    void Start()
+    public void StartPlay(string url)
     {
         var vp = GetComponent<VideoPlayer>();
-
+        vp.url = url;
         vp.Play();
     }
 

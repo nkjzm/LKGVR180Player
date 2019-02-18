@@ -53,7 +53,7 @@ public class QuiltFileLoader : MonoBehaviour
         Application.targetFrameRate = 15;
 
         // サンプルの画像を読み込み
-        LoadFile(Path.Combine(Application.streamingAssetsPath, "startup.png"));
+        LoadFile(Path.Combine(Application.streamingAssetsPath, "startup.png"), true);
     }
 
     void Update()
@@ -160,16 +160,58 @@ public class QuiltFileLoader : MonoBehaviour
     /// 画像を読み込み
     /// </summary>
     /// <param name="uri">Path.</param>
-    private void LoadFile(string path)
+    private void LoadFile(string path, bool isImage = false)
     {
         if (string.IsNullOrEmpty(path)) return;
 
         isLoading = true;
         currentFile = path;
 
-        string uri = new System.Uri(path).AbsoluteUri;
-        Debug.Log("Loading: " + uri);
-        StartCoroutine("LoadFileCoroutine", uri);
+        if (isImage)
+        {
+            string uri = new System.Uri(path).AbsoluteUri;
+            Debug.Log("Loading: " + path);
+            StartCoroutine("LoadFileCoroutine", uri);
+        }
+        else
+        {
+            StartCoroutine("LoadVR180Coroutine", path);
+            Debug.Log("LoadFileCoroutine" + path);
+        }
+    }
+
+
+    /// <summary>
+    /// コルーチンでファイル読み込み
+    /// </summary>
+    /// <param name="file"></param>
+    /// <returns></returns>
+    IEnumerator LoadVR180Coroutine(string file)
+    {
+        FindObjectOfType<VR180Mesh>().GenerateMesh(file);
+        FindObjectOfType<VR180Mesh>().StartPlay(file);
+
+        // 前のtextureを破棄
+        Destroy(texture);
+
+        // Quiltを読み込み
+        quilt.tiling = new Quilt.Tiling(
+               "Custom " + 2 + "x" + 1,
+               2, 1,
+               2560, 1440
+               );
+        quilt.overrideQuilt = renderTexture;
+        quilt.SetupQuilt();
+
+        // 念のため毎回GCをしてみる…
+        System.GC.Collect();
+
+        Debug.Log("Estimaged tiling: " + quilt.tiling.presetName);     // 選択されたTiling
+
+        // 読み込み完了
+        isLoading = false;
+
+        yield return null;
     }
 
     /// <summary>
@@ -179,22 +221,16 @@ public class QuiltFileLoader : MonoBehaviour
     /// <returns></returns>
     IEnumerator LoadFileCoroutine(string file)
     {
-        //WWW www = new WWW(file);
-        //yield return www;
+        WWW www = new WWW(file);
+        yield return www;
 
         // 前のtextureを破棄
         Destroy(texture);
 
         // Quiltを読み込み
-        //texture = www.texture;
-        //quilt.tiling = GetTilingType(texture);
-        quilt.tiling = new Quilt.Tiling(
-               "Custom " + 2 + "x" + 1,
-               2, 1,
-               2560, 1440
-               );
-        //quilt.overrideQuilt = texture;
-        quilt.overrideQuilt = renderTexture;
+        texture = www.texture;
+        quilt.tiling = GetTilingType(texture);
+        quilt.overrideQuilt = texture;
         quilt.SetupQuilt();
 
         // 念のため毎回GCをしてみる…
