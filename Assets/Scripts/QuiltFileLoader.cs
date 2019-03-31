@@ -246,7 +246,15 @@ public class QuiltFileLoader : MonoBehaviour
         // Quiltを読み込み
         texture = www.texture;
         holoplay.customQuiltSettings = GetTilingType(texture);
+        Debug.Log("kokokara");
+        Debug.Log(holoplay.customQuiltSettings.quiltWidth);
+        Debug.Log(holoplay.customQuiltSettings.quiltHeight);
+        Debug.Log(holoplay.customQuiltSettings.viewWidth);
+        Debug.Log(holoplay.customQuiltSettings.viewHeight);
+        Debug.Log(holoplay.customQuiltSettings.viewColumns);
+        Debug.Log(holoplay.customQuiltSettings.viewRows);
         holoplay.overrideQuilt = texture;
+        holoplay.quiltPreset = Quilt.Preset.Custom;
         holoplay.SetupQuilt();
 
         // 念のため毎回GCをしてみる…
