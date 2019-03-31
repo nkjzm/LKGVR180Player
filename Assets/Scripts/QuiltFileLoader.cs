@@ -4,15 +4,14 @@ using System.IO;
 using UnityEngine;
 using UnityEngine.UI;
 using Kirurobo;
-using HoloPlay;
+using LookingGlass;
 using SFB;
 
 public class QuiltFileLoader : MonoBehaviour
 {
     WindowController window;
     Texture2D texture;
-    Quilt quilt;
-    Quilt.Tiling defaultTiling;
+    Quilt.Settings defaultSetting;
 
     public Text messageText;
 
@@ -37,6 +36,7 @@ public class QuiltFileLoader : MonoBehaviour
     /// </summary>
     string currentFile;
 
+    Holoplay holoplay;
 
     // Use this for initialization
     void Start()
@@ -46,8 +46,8 @@ public class QuiltFileLoader : MonoBehaviour
         window.OnFilesDropped += Window_OnFilesDropped;
 
         // Quiltのインスタンスを取得
-        quilt = FindObjectOfType<Quilt>();
-        defaultTiling = quilt.tiling;   // Tilingの初期設定を記憶しておく
+        holoplay = FindObjectOfType<Holoplay>();
+        defaultSetting = holoplay.quiltSettings;   // Tilingの初期設定を記憶しておく
 
         // フレームレートを下げる
         Application.targetFrameRate = 15;
@@ -83,20 +83,20 @@ public class QuiltFileLoader : MonoBehaviour
             //}
 
             // 前の画像
-            if (Buttons.GetButton(ButtonType.LEFT) || Input.GetKey(KeyCode.LeftArrow))
+            if (ButtonManager.GetButton(ButtonType.LEFT) || Input.GetKey(KeyCode.LeftArrow))
             {
                 ShowMessage("");    // ファイル名が表示されていれば消す
                 LoadFile(GetNextFile(-1));
             }
 
             // 次の画像
-            if (Buttons.GetButton(ButtonType.RIGHT) || Input.GetKey(KeyCode.RightArrow))
+            if (ButtonManager.GetButton(ButtonType.RIGHT) || Input.GetKey(KeyCode.RightArrow))
             {
                 ShowMessage("");    // ファイル名が表示されていれば消す
                 LoadFile(GetNextFile(1));
             }
 
-            if (Buttons.GetButton(ButtonType.CIRCLE))
+            if (ButtonManager.GetButton(ButtonType.CIRCLE))
             {
                 ShowMessage(currentFile);
             }
@@ -195,23 +195,39 @@ public class QuiltFileLoader : MonoBehaviour
         Destroy(texture);
 
         // Quiltを読み込み
-        quilt.tiling = new Quilt.Tiling(
-               "Custom " + 2 + "x" + 1,
-               2, 1,
-               2560, 1440
+        holoplay.customQuiltSettings = new Quilt.Settings(
+               2560, 1440,
+               2, 1, 2
                );
-        quilt.overrideQuilt = renderTexture;
-        quilt.SetupQuilt();
+        holoplay.overrideQuilt = ToTexture2D(renderTexture);
+        holoplay.SetupQuilt();
 
         // 念のため毎回GCをしてみる…
         System.GC.Collect();
 
-        Debug.Log("Estimaged tiling: " + quilt.tiling.presetName);     // 選択されたTiling
+        // Debug.Log("Estimaged tiling: " + quilt.tiling.presetName);     // 選択されたTiling
 
         // 読み込み完了
         isLoading = false;
 
         yield return null;
+    }
+
+    public static Texture2D ToTexture2D(Texture self)
+    {
+        var sw = self.width;
+        var sh = self.height;
+        var format = TextureFormat.RGBA32;
+        var result = new Texture2D(sw, sh, format, false);
+        var currentRT = RenderTexture.active;
+        var rt = new RenderTexture(sw, sh, 32);
+        Graphics.Blit(self, rt);
+        RenderTexture.active = rt;
+        var source = new Rect(0, 0, rt.width, rt.height);
+        result.ReadPixels(source, 0, 0);
+        result.Apply();
+        RenderTexture.active = currentRT;
+        return result;
     }
 
     /// <summary>
@@ -229,14 +245,14 @@ public class QuiltFileLoader : MonoBehaviour
 
         // Quiltを読み込み
         texture = www.texture;
-        quilt.tiling = GetTilingType(texture);
-        quilt.overrideQuilt = texture;
-        quilt.SetupQuilt();
+        holoplay.customQuiltSettings = GetTilingType(texture);
+        holoplay.overrideQuilt = texture;
+        holoplay.SetupQuilt();
 
         // 念のため毎回GCをしてみる…
         System.GC.Collect();
 
-        Debug.Log("Estimaged tiling: " + quilt.tiling.presetName);     // 選択されたTiling
+        // Debug.Log("Estimaged tiling: " + quilt.tiling.presetName);     // 選択されたTiling
 
         // 読み込み完了
         isLoading = false;
@@ -371,32 +387,32 @@ public class QuiltFileLoader : MonoBehaviour
     /// </summary>
     /// <param name="texture"></param>
     /// <returns></returns>
-    private Quilt.Tiling GetTilingType(Texture2D texture)
+    private Quilt.Settings GetTilingType(Texture2D texture)
     {
-        List<Quilt.Tiling> tilingPresets = new List<Quilt.Tiling>();
-        foreach (var preset in Quilt.tilingPresets)
+        var tilingPresets = new List<Quilt.Settings>();
+        foreach (var setting in Quilt.presets)
         {
-            if ((preset.quiltH == texture.height) && (preset.quiltW == texture.width))
+            if ((setting.quiltWidth == texture.height) && (setting.quiltHeight == texture.width))
             {
                 // 画像サイズがプリセットのサイズと一致すれば候補とする
-                tilingPresets.Add(preset);
+                tilingPresets.Add(setting);
             }
             else
             {
                 // サイズが一致しなければ、そのtileX,tileYでサイズを合わせた候補を作成
                 tilingPresets.Add(
-                    new Quilt.Tiling(
-                        "Custom " + preset.tilesX + "x" + preset.tilesY,
-                        preset.tilesX, preset.tilesY,
-                        texture.width, texture.height
-                        ));
+                    new Quilt.Settings(
+                        texture.width, texture.height,
+                        setting.viewColumns, setting.viewRows,
+                        setting.viewColumns * setting.viewRows
+                    ));
             }
         }
 
         // どれも候補に残らなければ初期指定のTilingにしておく
         if (tilingPresets.Count < 1)
         {
-            return defaultTiling;
+            return defaultSetting;
         }
 
         // テクスチャを配列に取得
@@ -412,27 +428,27 @@ public class QuiltFileLoader : MonoBehaviour
         foreach (var preset in tilingPresets)
         {
             score[index] = 0;
-            for (int v = 0; v < preset.tileSizeY; v += skip)
+            for (int v = 0; v < preset.viewHeight; v += skip)
             {
-                for (int u = 0; u < preset.tileSizeX; u += skip)
+                for (int u = 0; u < preset.viewWidth; u += skip)
                 {
                     Color sum = Color.clear;
-                    for (int y = 0; y < preset.tilesY; y++)
+                    for (int y = 0; y < preset.viewRows; y++)
                     {
-                        for (int x = 0; x < preset.tilesX; x++)
+                        for (int x = 0; x < preset.viewColumns; x++)
                         {
-                            Color color = pixels[(y * preset.tileSizeY + v) * texture.width + (x * preset.tileSizeX + u)];
+                            Color color = pixels[(y * preset.viewHeight + v) * texture.width + (x * preset.viewWidth + u)];
                             sum += color;
                         }
                     }
                     Color average = sum / preset.numViews;
 
                     Color variance = Color.clear;
-                    for (int y = 0; y < preset.tilesY; y++)
+                    for (int y = 0; y < preset.viewRows; y++)
                     {
-                        for (int x = 0; x < preset.tilesX; x++)
+                        for (int x = 0; x < preset.viewColumns; x++)
                         {
-                            Color color = pixels[(y * preset.tileSizeY + v) * texture.width + (x * preset.tileSizeX + u)];
+                            Color color = pixels[(y * preset.viewHeight + v) * texture.width + (x * preset.viewWidth + u)];
                             Color diff = color - average;
                             variance += diff * diff;
                         }
