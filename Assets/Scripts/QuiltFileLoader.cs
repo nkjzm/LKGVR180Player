@@ -324,7 +324,8 @@ public class QuiltFileLoader : MonoBehaviour
     {
         // Standalone File Browserを利用
         var extensions = new[] {
-                new ExtensionFilter("Image Files", "png", "jpg", "jpeg" ),
+//                new ExtensionFilter("Image Files", "png", "jpg", "jpeg" ),
+                new ExtensionFilter("Movie Files", "mp4" ),
                 new ExtensionFilter("All Files", "*" ),
             };
         string[] files = StandaloneFileBrowser.OpenFilePanel("Open File", "", extensions, false);
